@@ -220,7 +220,11 @@ class SQLiteClient:
             is_local = parsed.hostname in ("localhost", "127.0.0.1", "::1")
 
             connect_args = {}
-            if not is_local:
+            # Check if SSL is explicitly disabled via query parameter
+            parsed_qs = dict(pair.split("=") for pair in (parsed.query.split("&") if parsed.query else []) if "=" in pair)
+            ssl_disabled = parsed_qs.get("ssl", "").lower() in ("disable", "false", "off")
+
+            if not is_local and not ssl_disabled:
                 # Remote PostgreSQL: enable SSL and disable prepared statement
                 # cache for compatibility with PgBouncer-based poolers
                 # (e.g. Supabase, Neon).

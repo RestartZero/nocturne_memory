@@ -20,10 +20,15 @@ async def up(engine: AsyncEngine):
     reachable by sub-path expansion is excluded.
     """
     async with engine.begin() as conn:
-        result = await conn.execute(text("""
+        # Detect dialect for cross-DB compatibility
+        is_postgres = "postgresql" in str(engine.url)
+        true_val = "TRUE" if is_postgres else "1"
+        false_val = "FALSE" if is_postgres else "0"
+        
+        result = await conn.execute(text(f"""
             UPDATE memories
-            SET deprecated = 1, migrated_to = NULL
-            WHERE deprecated = 0
+            SET deprecated = {true_val}, migrated_to = NULL
+            WHERE deprecated = {false_val}
               AND node_uuid IS NOT NULL
               AND node_uuid != :root_uuid
               AND node_uuid NOT IN (

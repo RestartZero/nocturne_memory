@@ -16,12 +16,17 @@ async def up(engine: AsyncEngine):
     2) Create a partial unique index to enforce the rule in DB.
     """
     async with engine.begin() as conn:
+        # Detect dialect for cross-DB compatibility
+        is_postgres = "postgresql" in str(engine.url)
+        true_val = "TRUE" if is_postgres else "1"
+        false_val = "FALSE" if is_postgres else "0"
+        
         dup_nodes_result = await conn.execute(
             text(
-                """
+                f"""
                 SELECT node_uuid
                 FROM memories
-                WHERE deprecated = 0
+                WHERE deprecated = {false_val}
                   AND node_uuid IS NOT NULL
                 GROUP BY node_uuid
                 HAVING COUNT(*) > 1
@@ -36,11 +41,11 @@ async def up(engine: AsyncEngine):
         for node_uuid in dup_nodes:
             active_result = await conn.execute(
                 text(
-                    """
+                    f"""
                     SELECT id
                     FROM memories
                     WHERE node_uuid = :node_uuid
-                      AND deprecated = 0
+                      AND deprecated = {false_val}
                     ORDER BY created_at DESC, id DESC
                     """
                 ),
@@ -54,9 +59,9 @@ async def up(engine: AsyncEngine):
             for memory_id in active_ids[1:]:
                 update_result = await conn.execute(
                     text(
-                        """
+                        f"""
                         UPDATE memories
-                        SET deprecated = 1,
+                        SET deprecated = {true_val},
                             migrated_to = COALESCE(migrated_to, :keep_id)
                         WHERE id = :memory_id
                         """
@@ -77,10 +82,10 @@ async def up(engine: AsyncEngine):
 
         await conn.execute(
             text(
-                """
+                f"""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_memory
                 ON memories(node_uuid)
-                WHERE deprecated = 0 AND node_uuid IS NOT NULL
+                WHERE deprecated = {false_val} AND node_uuid IS NOT NULL
                 """
             )
         )

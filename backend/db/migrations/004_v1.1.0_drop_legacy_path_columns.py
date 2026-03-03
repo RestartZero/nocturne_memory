@@ -1,6 +1,6 @@
-from sqlalchemy import text
+from sqlalchemy import text, DateTime
 from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import inspect as sa_inspect, dialects
 
 async def up(engine: AsyncEngine):
     """
@@ -16,12 +16,17 @@ async def up(engine: AsyncEngine):
         has_mem_id = await conn.run_sync(check_memory_id)
         if has_mem_id:
             # 1. Create new table without the legacy columns
-            await conn.execute(text("""
+            # Detect dialect for cross-DB compatibility
+            is_postgres = "postgresql" in str(engine.url)
+            timestamp_type = "TIMESTAMP" if is_postgres else "DATETIME"
+            
+            # 1. Create new table without the legacy columns
+            await conn.execute(text(f"""
                 CREATE TABLE paths_new (
                     domain VARCHAR(64) DEFAULT 'core',
                     path VARCHAR(512),
                     edge_id INTEGER REFERENCES edges(id),
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_at {timestamp_type} DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (domain, path)
                 )
             """))

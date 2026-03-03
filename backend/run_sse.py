@@ -18,7 +18,12 @@ def main():
     # Create the Starlette app for SSE
     # The default mount path is usually /sse or /
     # mcp.sse_app() creates an app that serves /sse and /messages
-    app = mcp.sse_app("/sse")
+    # Create the Starlette app for SSE
+    # Use "/" as mount path to get flat routing:
+    # - SSE endpoint: /sse
+    # - POST endpoint: /messages/
+    # This ensures compatibility with all MCP clients (OpenCode, Claude Desktop, etc.)
+    app = mcp.sse_app("/")
     
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
